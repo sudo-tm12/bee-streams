@@ -22,12 +22,33 @@ function read() {
   }
 }
 
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 function write(next) {
   const target = filePath();
   fs.mkdirSync(path.dirname(target), { recursive: true });
+  const data = JSON.stringify(next, null, 2);
   const tmp = `${target}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(next, null, 2), 'utf8');
-  fs.renameSync(tmp, target);
+  fs.writeFileSync(tmp, data, 'utf8');
+  // On Windows, antivirus / search indexing can briefly lock a file that was just written,
+  // which makes the swap fail with EPERM. Retry for up to ~1s, then fall back to a direct write.
+  for (let attempt = 1; attempt <= 8; attempt++) {
+    try {
+      fs.renameSync(tmp, target);
+      return;
+    } catch (err) {
+      if (!['EPERM', 'EACCES', 'EBUSY'].includes(err && err.code)) throw err;
+      sleepSync(25 * attempt);
+    }
+  }
+  fs.writeFileSync(target, data, 'utf8');
+  try {
+    fs.rmSync(tmp, { force: true });
+  } catch {
+    /* leftover temp file is harmless */
+  }
 }
 
 function update(patch) {

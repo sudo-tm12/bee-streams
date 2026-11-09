@@ -410,8 +410,9 @@ async function boot() {
   Menu.setApplicationMenu(buildMenu());
   try {
     store.migrate();
-  } catch {
-    /* keep going with whatever is stored */
+  } catch (err) {
+    // Keep going with whatever is stored; the upgrade is retried on next launch.
+    console.error('Settings upgrade failed:', err);
   }
   registerIpc();
 
