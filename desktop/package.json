@@ -1,0 +1,8 @@
+{
+  "name": "the-bee-streams",
+  "version": "2.0.0",
+  "private": true,
+  "description": "The Bee Streams desktop app",
+  "author": "The Bee Streams",
+  "main": "main.cjs"
+}

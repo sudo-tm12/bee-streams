@@ -1,0 +1,14 @@
+{
+  "name": "bee-streams-workspace",
+  "private": true,
+  "description": "Source for The Bee Streams desktop app (desktop shell, local server, React UI).",
+  "scripts": {
+    "setup": "npm install && npm --prefix server install && npm --prefix client install",
+    "build": "npm --prefix client run build",
+    "dev": "npm run build && electron desktop",
+    "deploy": "npm run build && node scripts/deploy.mjs"
+  },
+  "devDependencies": {
+    "electron": "35.7.5"
+  }
+}

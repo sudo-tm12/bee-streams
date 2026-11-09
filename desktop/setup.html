@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:"
+    />
+    <title>The Bee Streams — Setup</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b0b0c;
+        --panel: #151517;
+        --field: #0f0f11;
+        --ink: #f5f4f0;
+        --ink-2: #c9c5bd;
+        --muted: #8f8a83;
+        --line: rgba(245, 244, 240, 0.1);
+        --line-strong: rgba(245, 244, 240, 0.18);
+        --accent: #f5c518;
+        --accent-2: #e8a317;
+        --danger: #ff8a7a;
+        --ok: #6fd69a;
+        font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        background:
+          radial-gradient(640px 300px at 0% -10%, rgba(245, 197, 24, 0.14), transparent 60%),
+          radial-gradient(520px 260px at 110% 0%, rgba(232, 163, 23, 0.08), transparent 60%),
+          var(--bg);
+        color: var(--ink);
+        display: flex;
+        flex-direction: column;
+        padding: 28px 32px 22px;
+        user-select: none;
+      }
+      .brand { display: flex; align-items: center; gap: 10px; }
+      .brand__badge {
+        display: inline-grid; place-items: center;
+        height: 26px; padding: 0 8px; border-radius: 6px;
+        background: var(--accent); color: #0b0b0c;
+        font-weight: 800; font-size: 12px; letter-spacing: 0.02em;
+      }
+      .brand__word { color: var(--accent); font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
+      h1 { margin: 26px 0 8px; font-size: 26px; line-height: 1.15; letter-spacing: -0.025em; font-weight: 700; }
+      .lead { margin: 0 0 22px; color: var(--ink-2); font-size: 14px; line-height: 1.55; }
+      .notice {
+        margin: -8px 0 18px; padding: 10px 12px; border-radius: 10px;
+        background: rgba(245, 197, 24, 0.08); border: 1px solid rgba(245, 197, 24, 0.25);
+        color: var(--ink-2); font-size: 13px;
+      }
+      ol { list-style: none; margin: 0 0 22px; padding: 0; display: grid; gap: 10px; counter-reset: step; }
+      ol li {
+        counter-increment: step; display: grid; grid-template-columns: 26px 1fr; gap: 12px; align-items: start;
+        color: var(--ink-2); font-size: 13.5px; line-height: 1.5;
+      }
+      ol li::before {
+        content: counter(step); display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+        background: var(--panel); border: 1px solid var(--line-strong); color: var(--accent);
+        font-weight: 700; font-size: 12px;
+      }
+      ol strong { color: var(--ink); font-weight: 600; }
+      .link {
+        background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer;
+        text-decoration: underline; text-underline-offset: 3px;
+      }
+      .link:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+      label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-2); margin: 0 0 8px; }
+      .field { position: relative; }
+      input {
+        width: 100%; height: 46px; padding: 0 48px 0 14px; border-radius: 10px;
+        border: 1px solid var(--line-strong); background: var(--field); color: var(--ink);
+        font: 13.5px/1 ui-monospace, 'Cascadia Mono', Consolas, monospace; letter-spacing: 0.01em;
+        outline: none; user-select: text;
+      }
+      input::placeholder { color: var(--muted); font-family: 'Segoe UI', system-ui, sans-serif; letter-spacing: 0; }
+      input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(245, 197, 24, 0.18); }
+      input[aria-invalid='true'] { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(255, 138, 122, 0.14); }
+      .reveal {
+        position: absolute; right: 6px; top: 6px; width: 34px; height: 34px; border-radius: 8px;
+        border: 0; background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center;
+      }
+      .reveal:hover { color: var(--ink); background: rgba(255, 255, 255, 0.05); }
+      .reveal:focus-visible { outline: 2px solid var(--accent); }
+      .detect { min-height: 18px; margin: 8px 2px 0; font-size: 12.5px; color: var(--muted); }
+      .detect.ok { color: var(--ok); }
+      .status { min-height: 20px; margin: 14px 0 0; font-size: 13px; line-height: 1.45; color: var(--danger); }
+      .status.ok { color: var(--ok); }
+      .actions { display: flex; gap: 10px; margin-top: auto; padding-top: 18px; }
+      button.btn {
+        height: 44px; padding: 0 18px; border-radius: 10px; font: inherit; font-size: 14px; font-weight: 600;
+        cursor: pointer; border: 1px solid transparent; display: inline-flex; align-items: center; gap: 8px;
+      }
+      .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .btn--primary { background: var(--accent); color: #0b0b0c; flex: 1; justify-content: center; }
+      .btn--primary:hover { background: #ffd43b; }
+      .btn--primary:disabled { opacity: 0.65; cursor: progress; }
+      .btn--ghost { background: transparent; color: var(--ink); border-color: var(--line-strong); }
+      .btn--ghost:hover { background: rgba(255, 255, 255, 0.05); }
+      .btn[hidden] { display: none; }
+      .spinner {
+        width: 16px; height: 16px; border-radius: 50%;
+        border: 2px solid rgba(11, 11, 12, 0.25); border-top-color: #0b0b0c; animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .foot { margin: 14px 0 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <div class="brand"><span class="brand__badge">BEE</span><span class="brand__word">Streams</span></div>
+
+    <h1>Connect your TMDB account</h1>
+    <p class="lead">
+      Posters, details, cast and episode lists come from TMDB (The Movie Database). It needs your own free key
+      — you only do this once.
+    </p>
+    <p class="notice" id="notice" hidden></p>
+
+    <ol>
+      <li>
+        <span>Open the <button type="button" class="link" id="openTmdb">TMDB API settings page</button> and sign in
+          (or create a free account).</span>
+      </li>
+      <li><span>Copy either the <strong>API Key</strong> or the <strong>API Read Access Token</strong> — both work.</span></li>
+      <li><span>Paste it below and press <strong>Connect</strong>.</span></li>
+    </ol>
+
+    <label for="key">TMDB key</label>
+    <div class="field">
+      <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key here" />
+      <button type="button" class="reveal" id="reveal" aria-label="Show key" title="Show key">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+    <p class="detect" id="detect" aria-live="polite"></p>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+
+    <div class="actions">
+      <button type="button" class="btn btn--ghost" id="saveAnyway" hidden>Save without checking</button>
+      <button type="button" class="btn btn--primary" id="save">Connect</button>
+    </div>
+    <p class="foot">Your key is stored encrypted on this PC only. You can change it any time in Settings.</p>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const keyInput = $('key');
+      const saveBtn = $('save');
+      const anywayBtn = $('saveAnyway');
+      const statusEl = $('status');
+      const detectEl = $('detect');
+      const revealBtn = $('reveal');
+
+      function clean(raw) {
+        return String(raw || '').trim().replace(/^["']|["']$/g, '').replace(/^bearer\s+/i, '').replace(/\s+/g, '');
+      }
+
+      function describe(value) {
+        if (!value) return { text: '', ok: false };
+        if (value.startsWith('eyJ') && value.split('.').length === 3) {
+          return { text: '✓ Looks like an API Read Access Token', ok: true };
+        }
+        if (/^[a-f0-9]{32}$/i.test(value)) return { text: '✓ Looks like an API Key', ok: true };
+        if (value.length < 20) return { text: 'That looks too short — make sure you copied the whole key.', ok: false };
+        return { text: 'Not a format we recognise, but we’ll check it with TMDB.', ok: false };
+      }
+
+      function setStatus(text, ok) {
+        statusEl.textContent = text || '';
+        statusEl.classList.toggle('ok', Boolean(ok));
+      }
+
+      function setBusy(busy) {
+        saveBtn.disabled = busy;
+        anywayBtn.disabled = busy;
+        keyInput.readOnly = busy;
+        saveBtn.innerHTML = busy ? '<span class="spinner" aria-hidden="true"></span> Checking with TMDB…' : 'Connect';
+      }
+
+      async function save(skipCheck) {
+        const value = clean(keyInput.value);
+        setStatus('');
+        keyInput.removeAttribute('aria-invalid');
+        if (!value) {
+          setStatus('Paste your TMDB key first.');
+          keyInput.setAttribute('aria-invalid', 'true');
+          keyInput.focus();
+          return;
+        }
+        setBusy(true);
+        try {
+          const result = await window.beeSetup.saveKey(value, { skipCheck });
+          if (result && result.ok) {
+            setStatus('Connected! Opening The Bee Streams…', true);
+            return;
+          }
+          const code = result && result.code;
+          setStatus((result && result.message) || 'Couldn’t save the key.');
+          anywayBtn.hidden = code !== 'TMDB_UNREACHABLE' && code !== 'TMDB_RATE_LIMITED';
+          if (code === 'TMDB_KEY_INVALID' || code === 'BAD_FORMAT') keyInput.setAttribute('aria-invalid', 'true');
+        } catch (err) {
+          setStatus((err && err.message) || 'Something went wrong.');
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      keyInput.addEventListener('input', () => {
+        const d = describe(clean(keyInput.value));
+        detectEl.textContent = d.text;
+        detectEl.classList.toggle('ok', d.ok);
+        keyInput.removeAttribute('aria-invalid');
+        anywayBtn.hidden = true;
+        setStatus('');
+      });
+      keyInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') void save(false);
+      });
+      saveBtn.addEventListener('click', () => void save(false));
+      anywayBtn.addEventListener('click', () => void save(true));
+      $('openTmdb').addEventListener('click', () => void window.beeSetup.openTmdb());
+      revealBtn.addEventListener('click', () => {
+        const show = keyInput.type === 'password';
+        keyInput.type = show ? 'text' : 'password';
+        revealBtn.setAttribute('aria-label', show ? 'Hide key' : 'Show key');
+        revealBtn.title = show ? 'Hide key' : 'Show key';
+        keyInput.focus();
+      });
+
+      window.beeSetup.getContext().then((ctx) => {
+        if (ctx && ctx.reason === 'removed') {
+          const n = $('notice');
+          n.textContent = 'Your previous key was removed. Add a new one to keep using the app.';
+          n.hidden = false;
+        }
+      }).catch(() => {});
+      keyInput.focus();
+    </script>
+  </body>
+</html>
