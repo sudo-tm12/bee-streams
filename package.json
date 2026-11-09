@@ -5,6 +5,7 @@
   "scripts": {
     "setup": "npm install && npm --prefix server install && npm --prefix client install",
     "build": "npm --prefix client run build",
+    "build:web": "npm --prefix client run build:pages",
     "dev": "npm run build && electron desktop",
     "deploy": "npm run build && node scripts/deploy.mjs"
   },

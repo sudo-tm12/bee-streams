@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Outlet, ScrollRestoration, useLocation, useNavigate } from 'react-router';
 import { onKeyProblem, type ApiErrorCode } from '../lib/api';
 import { desktop, openExternal } from '../lib/desktop';
-import { loadDesktopSettings } from '../lib/settings';
+import { loadAppSettings } from '../lib/settings';
 import { Icon } from './Icon';
 import { useToast } from './Toasts';
 import { TopBar, focusSearch } from './TopBar';
@@ -13,7 +13,7 @@ export function Root() {
   const toast = useToast();
 
   useEffect(() => {
-    void loadDesktopSettings();
+    void loadAppSettings();
   }, []);
 
   useEffect(() => {
@@ -72,11 +72,11 @@ function KeyBanner() {
       <Icon name="key" size={17} />
       <span>
         {problem === 'TMDB_KEY_MISSING'
-          ? 'No TMDB key is set, so nothing can load.'
+          ? 'Add your free TMDB key to load movies and shows.'
           : 'TMDB rejected your API key, so nothing can load right now.'}
       </span>
       <Link to="/settings#tmdb" className="btn btn--primary btn--sm">
-        Update key
+        {problem === 'TMDB_KEY_MISSING' ? 'Add key' : 'Update key'}
       </Link>
     </div>
   );
@@ -102,7 +102,13 @@ export function AppLayout() {
           . This product uses the TMDB API but is not endorsed or certified by TMDB.
         </span>
         <span className="footer__shortcuts">
-          <kbd>/</kbd> search · <kbd>Ctrl</kbd>+<kbd>,</kbd> settings · <kbd>Alt</kbd>+<kbd>←</kbd> back
+          <kbd>/</kbd> search ·{' '}
+          {desktop && (
+            <>
+              <kbd>Ctrl</kbd>+<kbd>,</kbd> settings ·{' '}
+            </>
+          )}
+          <kbd>Alt</kbd>+<kbd>←</kbd> back
         </span>
       </footer>
     </div>

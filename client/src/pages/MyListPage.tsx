@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon';
 import { ConfirmModal } from '../components/Modal';
 import { PosterCard } from '../components/PosterCard';
 import { EmptyState } from '../components/States';
+import { desktop } from '../lib/desktop';
 import { episodeLabel, watchHref } from '../lib/format';
 import {
   clearContinue,
@@ -53,7 +54,9 @@ export function MyListPage() {
       <header className="page-head page-pad">
         <div>
           <h1 className="page-title">My Stuff</h1>
-          <p className="page-sub">Saved titles and everything you’ve started. Stored on this PC only.</p>
+          <p className="page-sub">
+            Saved titles and everything you’ve started. Stored {desktop ? 'on this PC' : 'in this browser'} only.
+          </p>
         </div>
         <div className="tabs" role="tablist">
           <button type="button" role="tab" aria-selected={tab === 'list'} className={`tab${tab === 'list' ? ' is-active' : ''}`} onClick={() => setTab('list')}>

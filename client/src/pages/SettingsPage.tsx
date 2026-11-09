@@ -13,7 +13,10 @@ import {
   useContinueWatching,
   useMyList,
 } from '../lib/library';
-import { REGIONS, setRegion, useDesktopSettings, useRegion } from '../lib/settings';
+import { REGIONS, keyManager, setRegion, useAppSettings, useRegion } from '../lib/settings';
+
+/** "this PC" in the desktop app, "this browser" on the web. */
+const HERE = desktop ? 'this PC' : 'this browser';
 
 type Status = 'checking' | 'ok' | 'invalid' | 'offline' | 'missing' | 'unknown';
 
@@ -53,7 +56,7 @@ const STATUS_COPY: Record<Status, { label: string; tone: 'ok' | 'bad' | 'warn' |
 };
 
 function TmdbSection() {
-  const { settings, setSettings } = useDesktopSettings();
+  const { settings, setSettings } = useAppSettings();
   const toast = useToast();
   const [status, setStatus] = useState<Status>('checking');
   const [editing, setEditing] = useState(false);
@@ -65,9 +68,8 @@ function TmdbSection() {
   const input = useRef<HTMLInputElement>(null);
 
   async function check() {
-    if (!desktop) return;
     setStatus('checking');
-    const r = await desktop.testKey().catch(() => ({ ok: false, code: 'UNKNOWN' }) as KeyCheckResult);
+    const r = await keyManager.testKey().catch(() => ({ ok: false, code: 'UNKNOWN' }) as KeyCheckResult);
     const s = statusFrom(r);
     setStatus(s);
     if (s === 'invalid' || s === 'missing') setEditing(true);
@@ -82,7 +84,6 @@ function TmdbSection() {
   }, [editing]);
 
   async function save(skipCheck = false) {
-    if (!desktop) return;
     const key = cleanKey(value);
     if (!key) {
       setResult({ ok: false, message: 'Paste your TMDB key first.' });
@@ -92,7 +93,7 @@ function TmdbSection() {
     setSaving(true);
     setResult(null);
     try {
-      const r = await desktop.saveKey(key, { skipCheck });
+      const r = await keyManager.saveKey(key, { skipCheck });
       if (r.ok) {
         if (r.settings) setSettings(r.settings);
         setStatus(skipCheck ? 'unknown' : 'ok');
@@ -113,12 +114,16 @@ function TmdbSection() {
     }
   }
 
-  if (!desktop) {
-    return (
-      <p className="muted">
-        You’re viewing the app in a browser. Open The Bee Streams desktop app to change your TMDB key.
-      </p>
-    );
+  async function remove() {
+    await keyManager.removeKey();
+    // The desktop app returns to its setup screen by itself; on the web we stay here.
+    if (desktop) return;
+    clearClientCache();
+    setKeyProblem('TMDB_KEY_MISSING');
+    setSettings(await keyManager.getSettings());
+    setStatus('missing');
+    setEditing(true);
+    toast.show('TMDB key removed from this browser', { icon: 'trash' });
   }
 
   const tone = STATUS_COPY[status];
@@ -254,25 +259,55 @@ function TmdbSection() {
 
       {settings?.hasKey && (
         <button type="button" className="btn btn--text btn--sm btn--danger-text" onClick={() => setConfirmRemove(true)}>
-          <Icon name="trash" size={14} /> Remove key from this PC
+          <Icon name="trash" size={14} /> Remove key from {HERE}
         </button>
       )}
 
       <ConfirmModal
         open={confirmRemove}
         title="Remove your TMDB key?"
-        text="The app will go back to the setup screen and nothing will load until you add a key again."
+        text={
+          desktop
+            ? 'The app will go back to the setup screen and nothing will load until you add a key again.'
+            : 'Nothing will load in this browser until you add a key again.'
+        }
         confirmLabel="Remove key"
         danger
-        onConfirm={() => void desktop?.removeKey()}
+        onConfirm={() => void remove()}
         onClose={() => setConfirmRemove(false)}
       />
     </>
   );
 }
 
+function WebProtectionSection() {
+  return (
+    <ul className="protect-list">
+        <li>
+          <Icon name="check" size={16} className="protect-list__icon" />
+          <div>
+            <p className="protect-list__title">Leaving the player</p>
+            <p className="protect-list__text">
+              If the player tries to send this tab to another website, your browser asks before leaving.
+            </p>
+          </div>
+        </li>
+        <li>
+          <Icon name="alert" size={16} className="protect-list__icon" />
+          <div>
+            <p className="protect-list__title">Popups & downloads</p>
+            <p className="protect-list__text">
+              In a browser these are up to your browser’s own blocker, so some player popups can get through. An ad
+              blocker such as uBlock Origin helps — or use the desktop app, which blocks them all.
+            </p>
+          </div>
+        </li>
+    </ul>
+  );
+}
+
 function ProtectionSection() {
-  const { settings } = useDesktopSettings();
+  const { settings } = useAppSettings();
   const [count, setCount] = useState<number | null>(null);
   useEffect(() => {
     if (settings) setCount(settings.blockedTotal);
@@ -334,20 +369,24 @@ function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange
   );
 }
 
-const SHORTCUTS: Array<[string, string]> = [
-  ['/', 'Search'],
-  ['Ctrl + K', 'Search (from anywhere)'],
-  ['Ctrl + ,', 'Settings'],
-  ['Ctrl + L', 'My List'],
-  ['Alt + ← / →', 'Back / forward'],
-  ['F', 'Player: fullscreen'],
-  ['M', 'Player: mini player'],
-  ['N / B', 'Player: next / previous episode'],
-  ['E', 'Player: episode list'],
-  ['R', 'Player: reload'],
-  ['Esc', 'Player: back to details'],
-  ['Ctrl + = / −', 'Zoom in / out'],
-];
+const DESKTOP_ONLY_SHORTCUTS = new Set(['Ctrl + ,', 'Ctrl + L', 'M']);
+
+const SHORTCUTS: Array<[string, string]> = (
+  [
+    ['/', 'Search'],
+    ['Ctrl + K', 'Search (from anywhere)'],
+    ['Ctrl + ,', 'Settings'],
+    ['Ctrl + L', 'My List'],
+    ['Alt + ← / →', 'Back / forward'],
+    ['F', 'Player: fullscreen'],
+    ['M', 'Player: mini player'],
+    ['N / B', 'Player: next / previous episode'],
+    ['E', 'Player: episode list'],
+    ['R', 'Player: reload'],
+    ['Esc', 'Player: back to details'],
+    ['Ctrl + = / −', 'Zoom in / out'],
+  ] satisfies Array<[string, string]>
+).filter(([keys]) => desktop || !DESKTOP_ONLY_SHORTCUTS.has(keys));
 
 export function SettingsPage() {
   const autoplay = useAutoplay();
@@ -356,7 +395,7 @@ export function SettingsPage() {
   const history = useContinueWatching();
   const toast = useToast();
   const location = useLocation();
-  const { settings } = useDesktopSettings();
+  const { settings } = useAppSettings();
   const [confirm, setConfirm] = useState<'list' | 'history' | null>(null);
   const regions = REGIONS.some(([c]) => c === region) ? REGIONS : [[region, region] as [string, string], ...REGIONS];
 
@@ -373,7 +412,7 @@ export function SettingsPage() {
       <header className="page-head page-pad">
         <div>
           <h1 className="page-title">Settings</h1>
-          <p className="page-sub">Everything here is saved on this PC.</p>
+          <p className="page-sub">Everything here is saved {desktop ? 'on' : 'in'} {HERE}.</p>
         </div>
       </header>
 
@@ -440,10 +479,14 @@ export function SettingsPage() {
             <Icon name="shield" size={20} />
             <div>
               <h2 id="s-protect">Protection</h2>
-              <p>Always on. Keeps embedded players from doing anything outside the player box.</p>
+              <p>
+                {desktop
+                  ? 'Always on. Keeps embedded players from doing anything outside the player box.'
+                  : 'What the web version can and can’t stop embedded players from doing.'}
+              </p>
             </div>
           </header>
-          <ProtectionSection />
+          {desktop ? <ProtectionSection /> : <WebProtectionSection />}
         </section>
 
         <section className="settings__card" aria-labelledby="s-data">
@@ -451,7 +494,7 @@ export function SettingsPage() {
             <Icon name="database" size={20} />
             <div>
               <h2 id="s-data">Your data</h2>
-              <p>Your list and history never leave this PC.</p>
+              <p>Your list and history never leave {HERE}.</p>
             </div>
           </header>
           <div className="setting-row">

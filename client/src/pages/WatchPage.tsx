@@ -181,6 +181,18 @@ export function WatchPage({ mediaType }: { mediaType: MediaType }) {
     });
   }, []);
 
+  // Web only (the desktop app blocks redirects outright): if the player tries to send this tab to
+  // another site, the browser asks first. In-app navigation never unloads the page, so it's unaffected.
+  useEffect(() => {
+    if (desktop) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
+
   // Re-render once the "Blocked …" flash should disappear.
   useEffect(() => {
     if (!blocked.at) return;

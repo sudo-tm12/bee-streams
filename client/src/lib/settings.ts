@@ -1,6 +1,47 @@
 import { useEffect, useState } from 'react';
-import { desktop, type DesktopSettings } from './desktop';
+import { desktop, type DesktopSettings, type KeyCheckResult } from './desktop';
 import { createStore, useStore } from './store';
+import { credentialKind, tmdbKeyStore, validateCredential } from './tmdb';
+
+export type AppSettings = DesktopSettings;
+
+/** Where the TMDB key lives: the desktop app's encrypted store, or this browser's localStorage. */
+interface KeyManager {
+  getSettings(): Promise<AppSettings>;
+  testKey(key?: string): Promise<KeyCheckResult>;
+  saveKey(key: string, opts?: { skipCheck?: boolean }): Promise<KeyCheckResult>;
+  removeKey(): Promise<boolean>;
+}
+
+function webSettings(): AppSettings {
+  const key = tmdbKeyStore.get();
+  return {
+    hasKey: Boolean(key),
+    keyHint: key ? `${'•'.repeat(10)}${key.slice(-4)}` : '',
+    keyKind: credentialKind(key),
+    keyEncrypted: false,
+    region: regionStore.get(),
+    version: __APP_VERSION__,
+    blockedTotal: 0,
+  };
+}
+
+const browserKeys: KeyManager = {
+  getSettings: async () => webSettings(),
+  testKey: (key) => validateCredential(key ?? tmdbKeyStore.get()),
+  async saveKey(key, opts) {
+    const result = opts?.skipCheck ? { ok: true, kind: credentialKind(key) } : await validateCredential(key);
+    if (!result.ok) return result;
+    tmdbKeyStore.set(key);
+    return { ...result, settings: webSettings() };
+  },
+  async removeKey() {
+    tmdbKeyStore.set('');
+    return true;
+  },
+};
+
+export const keyManager: KeyManager = desktop ?? browserKeys;
 
 /** Region for "where to watch" and age ratings. Synced from the desktop shell when present. */
 export const regionStore = createStore<string>('bee:region', 'US', (raw) =>
@@ -16,12 +57,11 @@ export async function setRegion(region: string) {
   if (desktop) await desktop.setRegion(region);
 }
 
-let settingsPromise: Promise<DesktopSettings | null> | null = null;
+let settingsPromise: Promise<AppSettings> | null = null;
 
-export function loadDesktopSettings(force = false): Promise<DesktopSettings | null> {
-  if (!desktop) return Promise.resolve(null);
+export function loadAppSettings(force = false): Promise<AppSettings> {
   if (!settingsPromise || force) {
-    settingsPromise = desktop.getSettings().then((s) => {
+    settingsPromise = keyManager.getSettings().then((s) => {
       if (s.region && s.region !== regionStore.get()) regionStore.set(s.region);
       return s;
     });
@@ -29,12 +69,13 @@ export function loadDesktopSettings(force = false): Promise<DesktopSettings | nu
   return settingsPromise;
 }
 
-export function useDesktopSettings() {
-  const [settings, setSettings] = useState<DesktopSettings | null>(null);
+export function useAppSettings() {
+  const [settings, setSettings] = useState<AppSettings | null>(null);
   const [nonce, setNonce] = useState(0);
   useEffect(() => {
     let alive = true;
-    void loadDesktopSettings(nonce > 0).then((s) => {
+    // Always re-read on the web: it's instant, and the key may have changed in another tab.
+    void loadAppSettings(nonce > 0 || !desktop).then((s) => {
       if (alive) setSettings(s);
     });
     return () => {

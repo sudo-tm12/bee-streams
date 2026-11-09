@@ -11,28 +11,12 @@ import type {
   SeasonDetails,
   TvDetails,
 } from './types';
+import { desktop } from './desktop';
+import { ApiError, type ApiErrorCode } from './errors';
+import { localGet } from './tmdb';
 
-export type ApiErrorCode =
-  | 'TMDB_KEY_MISSING'
-  | 'TMDB_KEY_INVALID'
-  | 'TMDB_UNREACHABLE'
-  | 'TMDB_RATE_LIMITED'
-  | 'TMDB_ERROR'
-  | 'NOT_FOUND'
-  | 'BAD_REQUEST'
-  | 'NETWORK'
-  | 'INTERNAL';
-
-export class ApiError extends Error {
-  readonly code: ApiErrorCode;
-  readonly status: number;
-  constructor(message: string, code: ApiErrorCode, status: number) {
-    super(message);
-    this.name = 'ApiError';
-    this.code = code;
-    this.status = status;
-  }
-}
+export { ApiError };
+export type { ApiErrorCode };
 
 export function isKeyProblem(err: unknown): boolean {
   return err instanceof ApiError && (err.code === 'TMDB_KEY_INVALID' || err.code === 'TMDB_KEY_MISSING');
@@ -73,6 +57,21 @@ export function peekCache<T>(path: string): T | undefined {
   return undefined;
 }
 
+/** Desktop app only: its bundled local server on localhost. */
+async function serverGet(path: string): Promise<unknown> {
+  let res: Response;
+  try {
+    res = await fetch(`/api${path}`, { headers: { Accept: 'application/json' } });
+  } catch {
+    throw new ApiError('The app’s local server isn’t responding. Try restarting the app.', 'NETWORK', 0);
+  }
+  const body = (await res.json().catch(() => ({}))) as { error?: string; code?: ApiErrorCode };
+  if (!res.ok) {
+    throw new ApiError(body.error ?? `Request failed (${res.status})`, body.code ?? 'INTERNAL', res.status);
+  }
+  return body;
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
   const cached = peekCache<T>(path);
   if (cached !== undefined) return cached;
@@ -80,19 +79,18 @@ export async function apiGet<T>(path: string): Promise<T> {
   if (pending) return pending as Promise<T>;
 
   const promise = (async () => {
-    let res: Response;
+    let body: unknown;
     try {
-      res = await fetch(`/api${path}`, { headers: { Accept: 'application/json' } });
-    } catch {
-      throw new ApiError('The app’s local server isn’t responding. Try restarting the app.', 'NETWORK', 0);
+      // The desktop app answers through its local server; on the web we go straight to TMDB.
+      body = desktop ? await serverGet(path) : await localGet(path);
+    } catch (err) {
+      if (err instanceof ApiError && (err.code === 'TMDB_KEY_INVALID' || err.code === 'TMDB_KEY_MISSING')) {
+        setKeyProblem(err.code);
+      }
+      throw err;
     }
-    const body = (await res.json().catch(() => ({}))) as { error?: string; code?: ApiErrorCode };
-    if (!res.ok) {
-      const code = body.code ?? 'INTERNAL';
-      if (code === 'TMDB_KEY_INVALID' || code === 'TMDB_KEY_MISSING') setKeyProblem(code);
-      throw new ApiError(body.error ?? `Request failed (${res.status})`, code, res.status);
-    }
-    setKeyProblem(null);
+    // Player links are built without contacting TMDB, so they say nothing about the key.
+    if (!path.startsWith('/playback/')) setKeyProblem(null);
     cache.set(path, { at: Date.now(), data: body });
     if (cache.size > 300) cache.delete(cache.keys().next().value as string);
     return body as T;

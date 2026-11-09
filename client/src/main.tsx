@@ -25,6 +25,9 @@ function LegacyTvWatch() {
   return <Navigate to={`/watch/tv/${id}/1/1`} replace />;
 }
 
+// "/" in the desktop app, "/bee-streams" on GitHub Pages.
+const basename = import.meta.env.BASE_URL.replace(/\/+$/, '') || '/';
+
 const router = createBrowserRouter([
   {
     element: <Root />,
@@ -50,7 +53,7 @@ const router = createBrowserRouter([
       { path: 'watch/tv/:id', element: <LegacyTvWatch /> },
     ],
   },
-]);
+], { basename });
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
